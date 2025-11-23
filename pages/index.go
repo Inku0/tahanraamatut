@@ -15,10 +15,7 @@ func IndexPage(ctx *h.RequestContext) *h.Page {
 				h.Text("okei, millist?"),
 				h.Class("text-5xl dark:text-white flex-3"),
 			),
-			h.Div(
-				h.Class("mt-3"),
-				partials.Search(),
-			),
+			partials.Search(),
 		),
 	)
 }
