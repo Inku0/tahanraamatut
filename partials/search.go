@@ -1,12 +1,12 @@
 package partials
 
 import (
-	"io"
 	"strconv"
 
 	"github.com/maddalax/htmgo/framework/h"
 	"github.com/maddalax/htmgo/framework/hx"
 	"github.com/maddalax/htmgo/framework/js"
+	"golift.io/starr/readarr"
 
 	"tahanraamatut/internal/api"
 )
@@ -75,40 +75,10 @@ func Spinner(children ...h.Ren) *h.Element {
 func SubmitForm(ctx *h.RequestContext) *h.Partial {
 	name := ctx.FormValue("name")
 
-	readarr := api.Connect()
+	handler := api.Connect()
 
-	health, err := readarr.HealthCheck()
+	searchResults, err := handler.Search(name)
 	if err != nil {
-		return h.NewPartial(
-			h.Div(
-				h.Class("text-base/8"),
-				h.P(h.Text("Encountered a fatal error while doing a health check. Wrong API key? error:"),
-					h.P(h.TextF("%s", err)),
-				),
-			),
-		)
-	} else if health.StatusCode != 200 {
-		body, err := io.ReadAll(health.Body)
-		if err != nil {
-			return h.NewPartial(
-				h.Div(
-					h.Class("text-base/8"),
-					h.P(h.TextF("Encountered a fatal error while reading the body of the health check:"),
-						h.P(h.TextF("error: %s", err)),
-					),
-				))
-		}
-		return h.NewPartial(
-			h.Div(
-				h.Class("text-base/8"),
-				h.P(h.Text("API health check returned a non-successful status code:"),
-					h.P(h.TextF("%s", body)),
-				),
-			))
-	}
-
-	searchResults, err := readarr.Search(name)
-	if err != nil || searchResults.StatusCode != 200 {
 		return h.NewPartial(
 			h.Div(
 				h.Class("text-base/8"),
@@ -116,25 +86,11 @@ func SubmitForm(ctx *h.RequestContext) *h.Partial {
 				h.P(h.TextF("error: %s", err)),
 			),
 		)
-	}
-
-	body, err := io.ReadAll(searchResults.Body)
-	if err != nil {
+	} else if len(searchResults) == 0 {
 		return h.NewPartial(
 			h.Div(
 				h.Class("text-base/8"),
-				h.P(h.TextF("Encountered a fatal error while reading the search results for a book named: %s", name)),
-				h.P(h.TextF("error: %s", err)),
-			),
-		)
-	}
-
-	parsedResults, err := api.ParseSearch(body)
-	if err != nil {
-		return h.NewPartial(
-			h.Div(
-				h.Class("text-base/8"),
-				h.P(h.TextF("Encountered a fatal error while parsing the search results for a book named: %s", name)),
+				h.P(h.TextF("No results for a book named: %s", name)),
 				h.P(h.TextF("error: %s", err)),
 			),
 		)
@@ -146,48 +102,75 @@ func SubmitForm(ctx *h.RequestContext) *h.Partial {
 			h.P(h.TextF("Searched for: %s", name)),
 			h.Hr(),
 			h.Div(
-				h.Class("mt-[1rem] flex flex-col gap-y-4"),
-				h.List(parsedResults, func(searchResult api.SearchResult, index int) *h.Element {
-					if searchResult.Book == nil || searchResult.Book.Editions == nil || searchResult.ID == 0 {
+				h.Class("mt-2 flex flex-col gap-y-4"),
+				h.List(searchResults, func(book *readarr.SearchResult, index int) *h.Element {
+					if book.Book == nil {
 						return h.Empty()
 					}
 
+					formattedTime := book.Book.ReleaseDate.Format("2006-01-02")
+
 					return h.Div(
 						h.P(
-							h.TextF("\"%s\" by %s", searchResult.Book.Title, searchResult.Book.Author.AuthorName),
+							h.TextF("\"%s\" by %s", book.Book.Title, book.Book.Author.AuthorName),
 						),
 						h.P(
-							h.TextF("page count: %d", searchResult.Book.PageCount),
+							h.TextF("page count: %d", book.Book.PageCount),
 						),
 						h.P(
-							h.TextF("release date: %s", searchResult.Book.ReleaseDate),
+							h.TextF("release date: %s", formattedTime),
 						),
 						h.P(
-							h.TextF("editions: %s", searchResult.Book.Editions[0].Title),
+							h.TextF("already monitored? %s", strconv.FormatBool(book.Book.Monitored)),
 						),
 						h.P(
-							h.TextF("already monitored? %s", strconv.FormatBool(searchResult.Book.Monitored)),
+							h.TextF("grabbed (downloading)?: %s", strconv.FormatBool(book.Book.Grabbed)),
 						),
-						h.P(
-							h.TextF("grabbed (downloading)?: %s", strconv.FormatBool(searchResult.Book.Grabbed)),
-						),
+						h.Button(),
 						h.Div(
 							h.Class("flex"),
 							h.P(
 								h.Class("p-4 text-justify flex-[10]"),
-								h.TextF("%s", searchResult.Book.Overview),
+								h.TextF("%s", book.Book.Overview),
 							),
-							h.If(searchResult.Book.RemoteCover != "",
-								h.Div(
-									h.Class("p-8 flex-[2]"),
-									h.Img(
-										h.Src(searchResult.Book.RemoteCover),
-										h.Width(200),
+							h.Div(
+								h.Class("flex gap-2"),
+								h.IfElseE(
+									len(book.Book.Editions) != 0,
+									h.List(book.Book.Editions, func(edition *readarr.Edition, index int) *h.Element {
+										var cover *h.Element
+										if len(edition.Images) > 0 {
+											image := edition.Images[0]
+											cover = h.Img(
+												h.Src(image.RemoteURL),
+												h.Width(200),
+											)
+										} else {
+											cover = h.P(
+												h.Class("italic text-sm"),
+												h.Text("No cover available"),
+											)
+										}
+
+										return h.Div(
+											h.Class("mt-[-5rem] flex flex-col gap-1"),
+											h.P(
+												h.TextF("%s", edition.Title),
+											),
+											cover,
+											GrabBookForm(book.Book, edition),
+										)
+									}),
+									h.Div(
+										h.Class("mt-[-5rem] flex flex-col gap-1"),
+										h.P(
+											h.TextF("Found no editions for book named %s", book.Book.Title),
+										),
 									),
 								),
 							),
 						),
-						h.Hr(),
+						h.Hr(h.Class("mt-2")),
 					)
 				}),
 			),

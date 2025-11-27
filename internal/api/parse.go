@@ -19,7 +19,7 @@ type Author struct {
 	Ended               bool        `json:"ended,omitempty"`
 	AuthorName          string      `json:"authorName,omitempty"`
 	AuthorNameLastFirst string      `json:"authorNameLastFirst,omitempty"`
-	ForeignAuthorId     string      `json:"foreignAuthorId,omitempty"`
+	ForeignAuthorID     string      `json:"foreignAuthorID,omitempty"`
 	TitleSlug           string      `json:"titleSlug,omitempty"`
 	Overview            string      `json:"overview,omitempty"`
 	Links               []Link      `json:"links,omitempty"`
@@ -45,7 +45,7 @@ type Author struct {
 
 type Edition struct {
 	BookID           int      `json:"bookId,omitempty"`
-	ForeignEditionId string   `json:"foreignEditionId,omitempty"`
+	ForeignEditionID string   `json:"foreignEditionID,omitempty"`
 	TitleSlug        string   `json:"titleSlug,omitempty"`
 	ISBN13           string   `json:"isbn13,omitempty"`
 	ASIN             string   `json:"asin,omitempty"`
@@ -74,8 +74,8 @@ type Book struct {
 	Disambiguation   string    `json:"disambiguation,omitempty"`
 	Overview         string    `json:"overview,omitempty"`
 	AuthorId         int       `json:"authorId,omitempty"`
-	ForeignBookId    string    `json:"foreignBookId,omitempty"`
-	ForeignEditionId string    `json:"foreignEditionId,omitempty"`
+	ForeignBookID    string    `json:"foreignBookId,omitempty"`
+	ForeignEditionID string    `json:"foreignEditionID,omitempty"`
 	TitleSlug        string    `json:"titleSlug,omitempty"`
 	Monitored        bool      `json:"monitored,omitempty"`
 	AnyEditionOk     bool      `json:"anyEditionOk,omitempty"`

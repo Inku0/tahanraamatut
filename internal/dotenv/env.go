@@ -8,26 +8,26 @@ import (
 	"github.com/joho/godotenv"
 )
 
-type Dotenv struct {
+type DotEnv struct {
 	ApiKey string
 	ApiURL url.URL
 }
 
-func GetEnv() Dotenv {
+func GetEnv() DotEnv {
 	err := godotenv.Load()
 	if err != nil {
-		log.Fatal("error loading .env file")
+		log.Fatal("error loading .env file. does it exist?")
 	}
 
 	apiKey := os.Getenv("API_KEY")
-	URL := os.Getenv("API_URL")
+	apiURL := os.Getenv("API_URL")
 
-	parsedURL, err := url.Parse(URL)
+	parsedURL, err := url.Parse(apiURL)
 	if err != nil {
-		log.Fatalf("error parsing API_URL: %s", err)
+		log.Fatalf("error parsing API_URL (%s): %s", apiURL, err)
 	}
 
-	return Dotenv{
+	return DotEnv{
 		ApiKey: apiKey,
 		ApiURL: *parsedURL,
 	}
