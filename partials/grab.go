@@ -103,7 +103,7 @@ func Grab(ctx *h.RequestContext) *h.Partial {
 
 	bookToAdd := readarr.AddBookInput{
 		Monitored: true,
-		Tags:      make([]int, 0),
+		Tags:      []int{},
 		AddOptions: &readarr.AddBookOptions{
 			SearchForNewBook: true, // change this to download
 		},
@@ -143,6 +143,7 @@ func Grab(ctx *h.RequestContext) *h.Partial {
 		)
 	}
 
+	// give it some time to analyze reports and what-not
 	time.Sleep(time.Second * 30)
 
 	grabbed, err := api.GotGrabbed(grab)

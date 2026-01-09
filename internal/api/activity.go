@@ -6,6 +6,18 @@ import (
 	"golift.io/starr/readarr"
 )
 
+// CleanFailedAdd deletes an added book if no suitable sources for it were found
+func CleanFailedAdd(grab *readarr.Book) error {
+	handler := Connect()
+
+	err := handler.DeleteBook(grab.ID, true, false)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
 // IsInQueue checks whether a grabbed book got placed into the queue
 func isInQueue(grab *readarr.Book) (bool, error) {
 	handler := Connect()
@@ -32,6 +44,7 @@ func isInQueue(grab *readarr.Book) (bool, error) {
 	return false, nil
 }
 
+// isInHistory checks whether a book was mentioned in the last 100 elements of history
 func isInHistory(grab *readarr.Book) (bool, error) {
 	handler := Connect()
 
@@ -53,6 +66,7 @@ func isInHistory(grab *readarr.Book) (bool, error) {
 	return false, nil
 }
 
+// GotGrabbed returns a heuristic for determining whether a book was grabbed and is downloading/ed
 func GotGrabbed(grab *readarr.Book) (bool, error) {
 	isQueued, err := isInQueue(grab)
 	if err != nil {

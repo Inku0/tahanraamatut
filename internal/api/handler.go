@@ -19,3 +19,9 @@ func Connect() *readarr.Readarr {
 
 	return ReadarrAPI
 }
+
+func GetStatus() (*readarr.SystemStatus, error) {
+	handler := Connect()
+	status, err := handler.GetSystemStatus()
+	return status, err
+}

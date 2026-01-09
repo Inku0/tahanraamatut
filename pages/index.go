@@ -3,7 +3,7 @@ package pages
 import (
 	"github.com/maddalax/htmgo/framework/h"
 
-	"tahanraamatut/internal/api"
+	"tahanraamatut/internal/components"
 	"tahanraamatut/partials"
 )
 
@@ -19,7 +19,7 @@ func IndexPage(ctx *h.RequestContext) *h.Page {
 			partials.Search(),
 			h.Div(
 				h.Class("my-2"),
-				api.Status(),
+				components.Status(),
 			),
 		),
 	)

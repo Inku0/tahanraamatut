@@ -1,12 +1,13 @@
-package api
+package components
 
 import (
 	"github.com/maddalax/htmgo/framework/h"
-	"golift.io/starr/readarr"
+
+	"tahanraamatut/internal/api"
 )
 
 func Status() *h.Element {
-	status, err := getStatus()
+	status, err := api.GetStatus()
 	if err != nil {
 		return h.Div(
 			h.H4(
@@ -22,10 +23,4 @@ func Status() *h.Element {
 			h.TextF("Readarr version: %s", status.Version),
 		),
 	)
-}
-
-func getStatus() (*readarr.SystemStatus, error) {
-	handler := Connect()
-	status, err := handler.GetSystemStatus()
-	return status, err
 }

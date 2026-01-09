@@ -162,14 +162,10 @@ func SubmitForm(ctx *h.RequestContext) *h.Partial {
 
 							return h.Div(
 								h.Class("flex flex-col gap-1"),
-								h.P(
-									h.Class("max-w-xs"),
-									h.TextF("%s", edition.Title),
-								),
 								cover,
 								h.IfElseE(
 									book.Book.Monitored,
-									h.P(h.Text("This book is already available.")),
+									h.P(h.Text("This book is already available!"), h.Class("font-bold text-center")),
 									GrabBookForm(book.Book, edition),
 								),
 							)
