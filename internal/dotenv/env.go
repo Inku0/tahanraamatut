@@ -13,10 +13,11 @@ type DotEnv struct {
 	ApiURL url.URL
 }
 
-func GetEnv() DotEnv {
+func GetEnv() (DotEnv, error) {
 	err := godotenv.Load()
 	if err != nil {
 		log.Fatal("error loading .env file. does it exist?")
+		return DotEnv{}, err
 	}
 
 	apiKey := os.Getenv("API_KEY")
@@ -25,10 +26,11 @@ func GetEnv() DotEnv {
 	parsedURL, err := url.Parse(apiURL)
 	if err != nil {
 		log.Fatalf("error parsing API_URL (%s): %s", apiURL, err)
+		return DotEnv{}, err
 	}
 
 	return DotEnv{
 		ApiKey: apiKey,
 		ApiURL: *parsedURL,
-	}
+	}, nil
 }

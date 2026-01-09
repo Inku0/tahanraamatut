@@ -1,7 +1,7 @@
 package partials
 
 import (
-	"log"
+	"time"
 
 	"github.com/maddalax/htmgo/framework/h"
 	"github.com/maddalax/htmgo/framework/js"
@@ -19,7 +19,7 @@ func GrabBookForm(book *readarr.Book, edition *readarr.Edition) *h.Element {
 
 	return h.Form(
 		h.PostPartial(Grab), // HTMX will call Book() and swap the returned partial
-		h.Class("flex justify-center w-[200px]"),
+		h.Class("flex justify-center w-xs"),
 		// hidden id so Book() can read it via ctx.FormValue("id")
 		h.Div(
 			h.Input(
@@ -89,10 +89,7 @@ func Grab(ctx *h.RequestContext) *h.Partial {
 
 	handler := api.Connect()
 
-	booksToMonitor := make([]string, 0)
-	booksToMonitor = append(booksToMonitor, ForeignBookID)
-
-	log.Println(booksToMonitor, ForeignBookID, ForeignEditionID, ForeignAuthorID)
+	booksToMonitor := []string{ForeignBookID}
 
 	editions := []*readarr.AddBookEdition{
 		{
@@ -111,16 +108,16 @@ func Grab(ctx *h.RequestContext) *h.Partial {
 			SearchForNewBook: true, // change this to download
 		},
 		Author: &readarr.AddBookAuthor{
-			Monitored:         true,
+			Monitored:         false,
 			QualityProfileID:  1,
-			MetadataProfileID: 0,
+			MetadataProfileID: 1,
 			ForeignAuthorID:   ForeignAuthorID,
 			RootFolderPath:    contentPath,
-			Tags:              make([]int, 0),
+			Tags:              []int{},
 			AddOptions: &readarr.AddAuthorOptions{
-				SearchForMissingBooks: true, // change this to download
+				SearchForMissingBooks: false,
 				Monitored:             true,
-				Monitor:               "none",
+				Monitor:               "existing",
 				BooksToMonitor:        booksToMonitor,
 			},
 		},
@@ -132,24 +129,38 @@ func Grab(ctx *h.RequestContext) *h.Partial {
 	if err != nil || grab == nil {
 		return h.NewPartial(
 			h.Div(
-				h.P(h.TextF("failed to start grab for id %s by %s: %s", ForeignBookID, AuthorName, err)),
+				h.P(h.TextF("Failed to start grab for %s by %s because: %s", Title, AuthorName, err)),
 			),
 		)
 	}
 
-	resp, err := api.StartSearch(grab.ID)
+	_, err = api.StartSearch(grab.ID)
 	if err != nil {
 		return h.NewPartial(
 			h.Div(
-				h.P(h.TextF("failed to start search for id %s by %s: %s", grab.ID, AuthorName, err)),
+				h.P(h.TextF("Failed to start search for id %s by %s: %s", grab.ID, AuthorName, err)),
+			),
+		)
+	}
+
+	time.Sleep(time.Second * 30)
+
+	grabbed, err := api.GotGrabbed(grab)
+	if err != nil {
+		return h.NewPartial(
+			h.Div(
+				h.P(h.TextF("Failed to check whether book with id %s by %s got grabbed because: %s", grab.ID, AuthorName, err)),
 			),
 		)
 	}
 
 	return h.NewPartial(
 		h.Div(
-			h.P(h.TextF("Started grab for book id %d by %s", grab.ID, AuthorName)),
-			h.P(h.TextF("response: %s", resp)),
+			h.IfElseE(
+				grabbed,
+				h.P(h.TextF("Found and downloading %s!", grab.Title)),
+				h.P(h.TextF("Couldn't find %s...", grab.Title)),
+			),
 		),
 	)
 }

@@ -9,7 +9,10 @@ import (
 
 // Connect returns a new instance of the starr.readarr API thingamajig
 func Connect() *readarr.Readarr {
-	dotEnvVars := dotenv.GetEnv()
+	dotEnvVars, err := dotenv.GetEnv()
+	if err != nil {
+		return nil
+	}
 
 	starrConfig := starr.New(dotEnvVars.ApiKey, dotEnvVars.ApiURL.String(), 0)
 	ReadarrAPI := readarr.New(starrConfig)

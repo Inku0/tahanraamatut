@@ -8,7 +8,7 @@ import (
 
 func RootPage(children ...h.Ren) *h.Page {
 	title := "tahanraamatut"
-	description := "siin saad tellida raamatuid ynqPoest"
+	description := "siin saad tellida raamatuid InkuKogust"
 	author := "inku0"
 	url := "https://tahanraamatut.ingvarruulib.com"
 
