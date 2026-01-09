@@ -10,17 +10,12 @@ import (
 	"tahanraamatut/internal/api"
 )
 
-const (
-	contentPath string = "/data/media/books/komga"
-)
-
 func GrabBookForm(book *readarr.Book, edition *readarr.Edition) *h.Element {
 	buttonClasses := "rounded dark:border-2 dark:border-white-200 items-center px-3 py-2 bg-white-800 dark:text-white w-full text-center"
 
 	return h.Form(
-		h.PostPartial(Grab), // HTMX will call Book() and swap the returned partial
+		h.PostPartial(Grab), // HTMX will call Grab() and swap the returned partial
 		h.Class("flex justify-center w-xs"),
-		// hidden id so Book() can read it via ctx.FormValue("id")
 		h.Div(
 			h.Input(
 				"hidden",
@@ -89,43 +84,16 @@ func Grab(ctx *h.RequestContext) *h.Partial {
 
 	handler := api.Connect()
 
-	booksToMonitor := []string{ForeignBookID}
+	bookToAdd := api.FormatBookToAdd(api.BookToAdd{
+		ForeignBookID:    ForeignBookID,
+		AuthorName:       AuthorName,
+		ForeignAuthorID:  ForeignAuthorID,
+		Title:            Title,
+		TitleSlug:        TitleSlug,
+		ForeignEditionID: ForeignEditionID,
+	})
 
-	editions := []*readarr.AddBookEdition{
-		{
-			Title:            Title,
-			TitleSlug:        TitleSlug,
-			ForeignEditionID: ForeignEditionID,
-			Monitored:        true,
-			ManualAdd:        true,
-		},
-	}
-
-	bookToAdd := readarr.AddBookInput{
-		Monitored: true,
-		Tags:      []int{},
-		AddOptions: &readarr.AddBookOptions{
-			SearchForNewBook: true, // change this to download
-		},
-		Author: &readarr.AddBookAuthor{
-			Monitored:         false,
-			QualityProfileID:  1,
-			MetadataProfileID: 1,
-			ForeignAuthorID:   ForeignAuthorID,
-			RootFolderPath:    contentPath,
-			Tags:              []int{},
-			AddOptions: &readarr.AddAuthorOptions{
-				SearchForMissingBooks: false,
-				Monitored:             true,
-				Monitor:               "existing",
-				BooksToMonitor:        booksToMonitor,
-			},
-		},
-		Editions:      editions,
-		ForeignBookID: ForeignBookID,
-	}
-
-	grab, err := handler.AddBook(&bookToAdd)
+	grab, err := handler.AddBook(bookToAdd)
 	if err != nil || grab == nil {
 		return h.NewPartial(
 			h.Div(
@@ -138,7 +106,7 @@ func Grab(ctx *h.RequestContext) *h.Partial {
 	if err != nil {
 		return h.NewPartial(
 			h.Div(
-				h.P(h.TextF("Failed to start search for id %s by %s: %s", grab.ID, AuthorName, err)),
+				h.P(h.TextF("Failed to start search for id %d by %s: %s", grab.ID, AuthorName, err)),
 			),
 		)
 	}
@@ -150,7 +118,7 @@ func Grab(ctx *h.RequestContext) *h.Partial {
 	if err != nil {
 		return h.NewPartial(
 			h.Div(
-				h.P(h.TextF("Failed to check whether book with id %s by %s got grabbed because: %s", grab.ID, AuthorName, err)),
+				h.P(h.TextF("Failed to check whether book with id %d by %s got grabbed because: %s", grab.ID, AuthorName, err)),
 			),
 		)
 	}
@@ -160,7 +128,7 @@ func Grab(ctx *h.RequestContext) *h.Partial {
 		if err != nil {
 			return h.NewPartial(
 				h.Div(
-					h.P(h.TextF("Failed to delete book with id %s by %s because: %s", grab.ID, AuthorName, err)),
+					h.P(h.TextF("Failed to delete book with id %d by %s because: %s", grab.ID, AuthorName, err)),
 				),
 			)
 		}
