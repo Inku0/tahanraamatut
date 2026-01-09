@@ -154,6 +154,17 @@ func Grab(ctx *h.RequestContext) *h.Partial {
 		)
 	}
 
+	if !grabbed {
+		err = api.CleanFailedAdd(grab)
+		if err != nil {
+			return h.NewPartial(
+				h.Div(
+					h.P(h.TextF("Failed to delete book with id %s by %s because: %s", grab.ID, AuthorName, err)),
+				),
+			)
+		}
+	}
+
 	return h.NewPartial(
 		h.Div(
 			h.IfElseE(
