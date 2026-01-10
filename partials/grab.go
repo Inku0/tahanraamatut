@@ -95,7 +95,7 @@ func Grab(ctx *h.RequestContext) *h.Partial {
 		ForeignEditionID: ForeignEditionID,
 	})
 
-	grab, err := handler.Client.AddBook(bookToAdd)
+	grab, err := handler.Client.AddBookContext(ctx.Request.Context(), bookToAdd)
 	if err != nil || grab == nil {
 		return h.NewPartial(
 			h.Div(
