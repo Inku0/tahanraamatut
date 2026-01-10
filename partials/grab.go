@@ -129,7 +129,7 @@ func Grab(rctx *h.RequestContext) *h.Partial {
 		if err != nil {
 			return h.NewPartial(
 				h.Div(
-					h.P(h.TextF("Failed to delete book with id %d by %s because: %s", grab.ID, AuthorName, err)),
+					h.P(h.TextF("Failed to delete unfound book entry with id %d by %s because: %s", grab.ID, AuthorName, err)),
 				),
 			)
 		}
