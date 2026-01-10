@@ -2,12 +2,16 @@ package components
 
 import (
 	"github.com/maddalax/htmgo/framework/h"
+	"github.com/maddalax/htmgo/framework/service"
 
 	"tahanraamatut/internal/api"
 )
 
-func Status() *h.Element {
-	status, err := api.GetStatus()
+func Status(ctx *h.RequestContext) *h.Element {
+	locator := ctx.ServiceLocator()
+	readarr := service.Get[api.ReadarrService](locator)
+	status, err := readarr.GetStatus(ctx.Request.Context())
+
 	if err != nil {
 		return h.Div(
 			h.H4(

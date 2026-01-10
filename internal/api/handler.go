@@ -1,6 +1,9 @@
 package api
 
 import (
+	"context"
+	"log"
+
 	"golift.io/starr"
 	"golift.io/starr/readarr"
 
@@ -20,23 +23,26 @@ const (
 	authorMonitorType     string = "existing"
 )
 
-// Connect returns a new instance of the starr.readarr API thingamajig
-func Connect() *readarr.Readarr {
+type ReadarrService struct {
+	Client *readarr.Readarr
+}
+
+// NewReadarrService creates a connection to the Readarr API
+func NewReadarrService() *ReadarrService {
 	dotEnvVars, err := dotenv.GetEnv()
 	if err != nil {
+		log.Fatal("Error reading dot env variables")
 		return nil
 	}
 
 	starrConfig := starr.New(dotEnvVars.ApiKey, dotEnvVars.ApiURL.String(), 0)
-	ReadarrAPI := readarr.New(starrConfig)
+	readarrClient := readarr.New(starrConfig)
 
-	return ReadarrAPI
+	return &ReadarrService{Client: readarrClient}
 }
 
-func GetStatus() (*readarr.SystemStatus, error) {
-	handler := Connect()
-	status, err := handler.GetSystemStatus()
-	return status, err
+func (service *ReadarrService) GetStatus(ctx context.Context) (*readarr.SystemStatus, error) {
+	return service.Client.GetSystemStatusContext(ctx)
 }
 
 type BookToAdd struct {
@@ -86,4 +92,16 @@ func FormatBookToAdd(add BookToAdd) *readarr.AddBookInput {
 	}
 
 	return &bookToAdd
+}
+
+func (service *ReadarrService) StartSearch(ctx context.Context, bookID int64) (*readarr.CommandResponse, error) {
+	bookIDs := []int64{bookID}
+
+	command := readarr.CommandRequest{
+		Name:    "BookSearch",
+		BookIDs: bookIDs,
+	}
+
+	resp, err := service.Client.SendCommandContext(ctx, &command)
+	return resp, err
 }

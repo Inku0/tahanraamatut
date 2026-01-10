@@ -4,6 +4,7 @@ import (
 	"github.com/maddalax/htmgo/framework/h"
 	"github.com/maddalax/htmgo/framework/hx"
 	"github.com/maddalax/htmgo/framework/js"
+	"github.com/maddalax/htmgo/framework/service"
 	"golift.io/starr/readarr"
 
 	"tahanraamatut/internal/api"
@@ -73,9 +74,10 @@ func Spinner(children ...h.Ren) *h.Element {
 func SubmitForm(ctx *h.RequestContext) *h.Partial {
 	name := ctx.FormValue("name")
 
-	handler := api.Connect()
+	locator := ctx.ServiceLocator()
+	handler := service.Get[api.ReadarrService](locator)
 
-	searchResults, err := handler.Search(name)
+	searchResults, err := handler.Client.SearchContext(ctx.Request.Context(), name)
 	if err != nil {
 		return h.NewPartial(
 			h.Div(

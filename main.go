@@ -10,10 +10,14 @@ import (
 	"github.com/maddalax/htmgo/framework/service"
 
 	"tahanraamatut/__htmgo"
+	"tahanraamatut/internal/api"
 )
 
 func main() {
 	locator := service.NewLocator()
+	service.Set(locator, "readarr", func() *api.ReadarrService {
+		return api.NewReadarrService()
+	})
 	cfg := config.Get()
 
 	h.Start(h.AppOpts{

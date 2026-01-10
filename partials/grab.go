@@ -5,13 +5,14 @@ import (
 
 	"github.com/maddalax/htmgo/framework/h"
 	"github.com/maddalax/htmgo/framework/js"
+	"github.com/maddalax/htmgo/framework/service"
 	"golift.io/starr/readarr"
 
 	"tahanraamatut/internal/api"
 )
 
 func GrabBookForm(book *readarr.Book, edition *readarr.Edition) *h.Element {
-	buttonClasses := "rounded dark:border-2 dark:border-white-200 items-center px-3 py-2 bg-white-800 dark:text-white w-full text-center"
+	buttonClasses := "rounded border-2 border-black dark:border-white-200 items-center px-3 py-2 bg-white-800 dark:text-white w-full text-center"
 
 	return h.Form(
 		h.PostPartial(Grab), // HTMX will call Grab() and swap the returned partial
@@ -61,12 +62,12 @@ func GrabBookForm(book *readarr.Book, edition *readarr.Edition) *h.Element {
 			h.Class("loading hidden relative text-center", buttonClasses),
 			Spinner(),
 			h.Disabled(),
-			h.Text("grabbing..."),
+			h.Text("Grabbing..."),
 		),
 		h.Button(
 			h.Type("submit"),
 			h.Class("submit", buttonClasses),
-			h.Text("grab"),
+			h.Text("Grab!"),
 		),
 	)
 }
@@ -82,7 +83,8 @@ func Grab(ctx *h.RequestContext) *h.Partial {
 	TitleSlug := ctx.FormValue("TitleSlug")
 	ForeignEditionID := ctx.FormValue("ForeignEditionID")
 
-	handler := api.Connect()
+	locator := ctx.ServiceLocator()
+	handler := service.Get[api.ReadarrService](locator)
 
 	bookToAdd := api.FormatBookToAdd(api.BookToAdd{
 		ForeignBookID:    ForeignBookID,
@@ -93,7 +95,7 @@ func Grab(ctx *h.RequestContext) *h.Partial {
 		ForeignEditionID: ForeignEditionID,
 	})
 
-	grab, err := handler.AddBook(bookToAdd)
+	grab, err := handler.Client.AddBook(bookToAdd)
 	if err != nil || grab == nil {
 		return h.NewPartial(
 			h.Div(
@@ -102,7 +104,7 @@ func Grab(ctx *h.RequestContext) *h.Partial {
 		)
 	}
 
-	_, err = api.StartSearch(grab.ID)
+	_, err = handler.StartSearch(ctx.Request.Context(), grab.ID)
 	if err != nil {
 		return h.NewPartial(
 			h.Div(
@@ -114,7 +116,7 @@ func Grab(ctx *h.RequestContext) *h.Partial {
 	// give it some time to analyze reports and what-not
 	time.Sleep(time.Second * 30)
 
-	grabbed, err := api.GotGrabbed(grab)
+	grabbed, err := handler.GotGrabbed(ctx.Request.Context(), grab)
 	if err != nil {
 		return h.NewPartial(
 			h.Div(
@@ -124,7 +126,7 @@ func Grab(ctx *h.RequestContext) *h.Partial {
 	}
 
 	if !grabbed {
-		err = api.CleanFailedAdd(grab)
+		err = handler.CleanFailedAdd(ctx.Request.Context(), grab)
 		if err != nil {
 			return h.NewPartial(
 				h.Div(

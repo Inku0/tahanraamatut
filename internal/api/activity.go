@@ -1,16 +1,15 @@
 package api
 
 import (
+	"context"
 	"log"
 
 	"golift.io/starr/readarr"
 )
 
 // CleanFailedAdd deletes an added book if no suitable sources for it were found
-func CleanFailedAdd(grab *readarr.Book) error {
-	handler := Connect()
-
-	err := handler.DeleteBook(grab.ID, true, false)
+func (service *ReadarrService) CleanFailedAdd(ctx context.Context, grab *readarr.Book) error {
+	err := service.Client.DeleteBookContext(ctx, grab.ID, true, false)
 	if err != nil {
 		return err
 	}
@@ -18,11 +17,9 @@ func CleanFailedAdd(grab *readarr.Book) error {
 	return nil
 }
 
-// IsInQueue checks whether a grabbed book got placed into the queue
-func isInQueue(grab *readarr.Book) (bool, error) {
-	handler := Connect()
-
-	queue, err := handler.GetQueue(0, 0)
+// isInQueue checks whether a grabbed book got placed into the queue
+func (service *ReadarrService) isInQueue(ctx context.Context, grab *readarr.Book) (bool, error) {
+	queue, err := service.Client.GetQueueContext(ctx, 0, 0)
 	if err != nil {
 		return false, err
 	}
@@ -45,10 +42,8 @@ func isInQueue(grab *readarr.Book) (bool, error) {
 }
 
 // isInHistory checks whether a book was mentioned in the last 100 elements of history
-func isInHistory(grab *readarr.Book) (bool, error) {
-	handler := Connect()
-
-	history, err := handler.GetHistory(100, 0)
+func (service *ReadarrService) isInHistory(ctx context.Context, grab *readarr.Book) (bool, error) {
+	history, err := service.Client.GetHistoryContext(ctx, 100, 0)
 	if err != nil {
 		return false, err
 	}
@@ -67,13 +62,13 @@ func isInHistory(grab *readarr.Book) (bool, error) {
 }
 
 // GotGrabbed returns a heuristic for determining whether a book was grabbed and is downloading/ed
-func GotGrabbed(grab *readarr.Book) (bool, error) {
-	isQueued, err := isInQueue(grab)
+func (service *ReadarrService) GotGrabbed(ctx context.Context, grab *readarr.Book) (bool, error) {
+	isQueued, err := service.isInQueue(ctx, grab)
 	if err != nil {
 		return false, err
 	}
 
-	isHistory, err := isInHistory(grab)
+	isHistory, err := service.isInHistory(ctx, grab)
 	if err != nil {
 		return false, err
 	}
