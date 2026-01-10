@@ -1,6 +1,7 @@
 package partials
 
 import (
+	"context"
 	"time"
 
 	"github.com/maddalax/htmgo/framework/h"
@@ -72,19 +73,20 @@ func GrabBookForm(book *readarr.Book, edition *readarr.Edition) *h.Element {
 	)
 }
 
-// Grab is the HTMX handler for the grab action. It reads the `id` form value,
-// performs the grab (replace the placeholder logic with your real API call),
-// and returns a partial fragment that HTMX will inject where the trigger element is targeted.
-func Grab(ctx *h.RequestContext) *h.Partial {
-	ForeignBookID := ctx.FormValue("ForeignBookID")
-	AuthorName := ctx.FormValue("AuthorName")
-	ForeignAuthorID := ctx.FormValue("ForeignAuthorID")
-	Title := ctx.FormValue("Title")
-	TitleSlug := ctx.FormValue("TitleSlug")
-	ForeignEditionID := ctx.FormValue("ForeignEditionID")
+// Grab is the HTMX handler for the grab action. It reads the necessary fields from the request context,
+func Grab(rctx *h.RequestContext) *h.Partial {
+	ForeignBookID := rctx.FormValue("ForeignBookID")
+	AuthorName := rctx.FormValue("AuthorName")
+	ForeignAuthorID := rctx.FormValue("ForeignAuthorID")
+	Title := rctx.FormValue("Title")
+	TitleSlug := rctx.FormValue("TitleSlug")
+	ForeignEditionID := rctx.FormValue("ForeignEditionID")
 
-	locator := ctx.ServiceLocator()
-	handler := service.Get[api.ReadarrService](locator)
+	handler := service.Get[api.ReadarrService](rctx.ServiceLocator())
+
+	// upper bound for time
+	ctx, cancel := context.WithTimeout(rctx.Request.Context(), 45*time.Second)
+	defer cancel()
 
 	bookToAdd := api.FormatBookToAdd(api.BookToAdd{
 		ForeignBookID:    ForeignBookID,
@@ -95,7 +97,7 @@ func Grab(ctx *h.RequestContext) *h.Partial {
 		ForeignEditionID: ForeignEditionID,
 	})
 
-	grab, err := handler.Client.AddBookContext(ctx.Request.Context(), bookToAdd)
+	grab, err := handler.Client.AddBookContext(ctx, bookToAdd)
 	if err != nil || grab == nil {
 		return h.NewPartial(
 			h.Div(
@@ -104,7 +106,7 @@ func Grab(ctx *h.RequestContext) *h.Partial {
 		)
 	}
 
-	_, err = handler.StartSearch(ctx.Request.Context(), grab.ID)
+	_, err = handler.StartSearch(ctx, grab.ID)
 	if err != nil {
 		return h.NewPartial(
 			h.Div(
@@ -113,10 +115,7 @@ func Grab(ctx *h.RequestContext) *h.Partial {
 		)
 	}
 
-	// give it some time to analyze reports and what-not
-	time.Sleep(time.Second * 30)
-
-	grabbed, err := handler.GotGrabbed(ctx.Request.Context(), grab)
+	grabbed, err := waitForGrabbed(ctx, handler, grab, 30*time.Second, 2*time.Second)
 	if err != nil {
 		return h.NewPartial(
 			h.Div(
@@ -126,7 +125,7 @@ func Grab(ctx *h.RequestContext) *h.Partial {
 	}
 
 	if !grabbed {
-		err = handler.CleanFailedAdd(ctx.Request.Context(), grab)
+		err = handler.CleanFailedAdd(ctx, grab)
 		if err != nil {
 			return h.NewPartial(
 				h.Div(
@@ -145,4 +144,28 @@ func Grab(ctx *h.RequestContext) *h.Partial {
 			),
 		),
 	)
+}
+
+func waitForGrabbed(ctx context.Context, handler *api.ReadarrService, grab *readarr.Book, maxWait, interval time.Duration) (bool, error) {
+	waitCtx, cancel := context.WithTimeout(ctx, maxWait)
+	defer cancel()
+
+	t := time.NewTicker(interval)
+	defer t.Stop()
+
+	for {
+		grabbed, err := handler.GotGrabbed(waitCtx, grab)
+		if err != nil {
+			return false, err
+		}
+		if grabbed {
+			return true, nil
+		}
+
+		select {
+		case <-waitCtx.Done():
+			return false, waitCtx.Err()
+		case <-t.C:
+		}
+	}
 }
