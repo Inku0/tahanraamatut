@@ -18,6 +18,7 @@ func IndexPage(ctx *h.RequestContext) *h.Page {
 			),
 			partials.Search(),
 			h.Div(
+				h.Id("status"),
 				h.Class("my-2"),
 				components.Status(ctx),
 			),

@@ -15,7 +15,7 @@ const (
 	editionsMonitored     bool   = true
 	manualAdd             bool   = true
 	monitorBook           bool   = true
-	monitorAuthor         bool   = false
+	monitorAuthor         bool   = true
 	searchForNewBook      bool   = true
 	searchForMissingBooks bool   = false
 	qualityProfileID      int64  = 1

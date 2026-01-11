@@ -2,22 +2,22 @@ package partials
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"time"
 
 	"github.com/maddalax/htmgo/framework/h"
-	"github.com/maddalax/htmgo/framework/js"
 	"github.com/maddalax/htmgo/framework/service"
 	"golift.io/starr/readarr"
 
 	"tahanraamatut/internal/api"
+	"tahanraamatut/internal/components"
 )
 
 func GrabBookForm(book *readarr.Book, edition *readarr.Edition) *h.Element {
-	buttonClasses := "rounded border-2 border-black dark:border-white-200 items-center px-3 py-2 bg-white-800 dark:text-white w-full text-center"
-
 	return h.Form(
 		h.PostPartial(Grab), // HTMX will call Grab() and swap the returned partial
-		h.Class("flex justify-center w-xs"),
+		h.Class("flex justify-center w-full"),
 		h.Div(
 			h.Input(
 				"hidden",
@@ -50,26 +50,7 @@ func GrabBookForm(book *readarr.Book, edition *readarr.Edition) *h.Element {
 				h.Value(edition.ForeignEditionID),
 			),
 		),
-		// keep the before/after hooks for spinner / submit toggling
-		h.HxBeforeRequest(
-			js.RemoveClassOnChildren(".loading", "hidden"),
-			js.SetClassOnChildren(".submit", "hidden"),
-		),
-		h.HxAfterRequest(
-			js.SetClassOnChildren(".loading", "hidden"),
-			js.RemoveClassOnChildren(".submit", "hidden"),
-		),
-		h.Button(
-			h.Class("loading hidden relative text-center", buttonClasses),
-			Spinner(),
-			h.Disabled(),
-			h.Text("Grabbing..."),
-		),
-		h.Button(
-			h.Type("submit"),
-			h.Class("submit", buttonClasses),
-			h.Text("Grab!"),
-		),
+		components.SpinnerButton("grab", "grabbing..."),
 	)
 }
 
@@ -99,29 +80,20 @@ func Grab(rctx *h.RequestContext) *h.Partial {
 
 	grab, err := handler.Client.AddBookContext(ctx, bookToAdd)
 	if err != nil || grab == nil {
-		return h.NewPartial(
-			h.Div(
-				h.P(h.TextF("Failed to start grab for %s by %s because: %s", Title, AuthorName, err)),
-			),
-		)
+		errStr := fmt.Sprintf("Failed to start grab for %s by %s because: %s", Title, AuthorName, err)
+		return h.NewPartial(components.GrabError(errStr))
 	}
 
 	_, err = handler.StartSearch(ctx, grab.ID)
 	if err != nil {
-		return h.NewPartial(
-			h.Div(
-				h.P(h.TextF("Failed to start search for id %d by %s: %s", grab.ID, AuthorName, err)),
-			),
-		)
+		errStr := fmt.Sprintf("Failed to start search for id %d by %s: %s", grab.ID, AuthorName, err)
+		return h.NewPartial(components.GrabError(errStr))
 	}
 
 	grabbed, err := waitForGrabbed(ctx, handler, grab, 30*time.Second, 2*time.Second)
-	if err != nil {
-		return h.NewPartial(
-			h.Div(
-				h.P(h.TextF("Failed to check whether book with id %d by %s got grabbed because: %s", grab.ID, AuthorName, err)),
-			),
-		)
+	if err != nil && !errors.Is(err, context.DeadlineExceeded) {
+		errStr := fmt.Sprintf("Failed to check whether book with id %d by %s got grabbed because: %s", grab.ID, AuthorName, err)
+		return h.NewPartial(components.GrabError(errStr))
 	}
 
 	if !grabbed {
@@ -129,19 +101,24 @@ func Grab(rctx *h.RequestContext) *h.Partial {
 		if err != nil {
 			return h.NewPartial(
 				h.Div(
-					h.P(h.TextF("Failed to delete unfound book entry with id %d by %s because: %s", grab.ID, AuthorName, err)),
+					h.IfElseE(
+						err != nil,
+						h.P(h.TextF("Failed to delete unfound book entry with id %d by %s because: %s", grab.ID, AuthorName, err)),
+						h.P(h.TextF("Couldn't find %s or couldn't parse a name. Try Readarr's interactive search instead.", grab.Title)),
+					),
 				),
 			)
 		}
 	}
 
+	api.MarkGrabbed(grab.ID)
+
+	// success! now to track the status
 	return h.NewPartial(
 		h.Div(
-			h.IfElseE(
-				grabbed,
-				h.P(h.TextF("Found and downloading %s!", grab.Title)),
-				h.P(h.TextF("Couldn't find %s...", grab.Title)),
-			),
+			h.Id("grab-status"),
+			h.Class("my-2"),
+			GrabStatusWidget(rctx, grab.ID),
 		),
 	)
 }

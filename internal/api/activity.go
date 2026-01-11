@@ -2,9 +2,38 @@ package api
 
 import (
 	"context"
+	"errors"
 	"log"
+	"sync"
 
 	"golift.io/starr/readarr"
+)
+
+var grabbedBooks = struct {
+	sync.RWMutex
+	ids map[int64]bool
+}{ids: make(map[int64]bool)}
+
+func MarkGrabbed(id int64) {
+	grabbedBooks.Lock()
+	defer grabbedBooks.Unlock()
+	grabbedBooks.ids[id] = true
+}
+
+func WasGrabbed(id int64) bool {
+	grabbedBooks.RLock()
+	defer grabbedBooks.RUnlock()
+	return grabbedBooks.ids[id]
+}
+
+func ClearGrabbed(id int64) {
+	grabbedBooks.Lock()
+	defer grabbedBooks.Unlock()
+	delete(grabbedBooks.ids, id)
+}
+
+var (
+	ErrNoResults = errors.New("found no results")
 )
 
 // CleanFailedAdd deletes an added book if no suitable sources for it were found
@@ -35,7 +64,7 @@ func (service *ReadarrService) isInQueue(ctx context.Context, grab *readarr.Book
 
 		// log.Printf("record[%d] Title=%s AuthorID=%d BookID=%d\n", i, record.Title, record.AuthorID, record.BookID)
 		if record.BookID == grab.ID && record.AuthorID == grab.AuthorID {
-			log.Printf("match found for bookID=%d authorID=%d\n", grab.ID, grab.AuthorID)
+			log.Printf("queue match found for bookID=%d authorID=%d\n", grab.ID, grab.AuthorID)
 			return true, nil
 		}
 	}
@@ -45,7 +74,7 @@ func (service *ReadarrService) isInQueue(ctx context.Context, grab *readarr.Book
 
 // isInHistory checks whether a book was mentioned in the last 100 elements of history
 func (service *ReadarrService) isInHistory(ctx context.Context, grab *readarr.Book) (bool, error) {
-	history, err := service.Client.GetHistoryContext(ctx, 100, 0)
+	history, err := service.Client.GetHistoryContext(ctx, 10, 0)
 	if err != nil {
 		return false, err
 	}
@@ -61,7 +90,7 @@ func (service *ReadarrService) isInHistory(ctx context.Context, grab *readarr.Bo
 
 		// log.Printf("record[%d] Event=%s AuthorID=%d BookID=%d\n", i, record.EventType, record.AuthorID, record.BookID)
 		if record.BookID == grab.ID && record.AuthorID == grab.AuthorID {
-			log.Printf("match found for bookID=%d authorID=%d\n", grab.ID, grab.AuthorID)
+			log.Printf("history match found for bookID=%d authorID=%d\n", grab.ID, grab.AuthorID)
 			return true, nil
 		}
 	}
@@ -82,4 +111,26 @@ func (service *ReadarrService) GotGrabbed(ctx context.Context, grab *readarr.Boo
 	}
 
 	return isHistory || isQueued, nil
+}
+
+func (service *ReadarrService) GetBookQueueStatus(ctx context.Context, id int64) (*readarr.QueueRecord, error) {
+	queue, err := service.Client.GetQueueContext(ctx, 0, 0)
+	if err != nil {
+		return &readarr.QueueRecord{}, err
+	}
+
+	var book *readarr.QueueRecord
+
+	for _, record := range queue.Records {
+		if record != nil && record.BookID == id {
+			book = record
+			break
+		}
+	}
+
+	if book == nil {
+		return &readarr.QueueRecord{}, ErrNoResults
+	}
+
+	return book, nil
 }
